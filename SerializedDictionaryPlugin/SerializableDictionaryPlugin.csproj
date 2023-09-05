@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<BaseOutputPath></BaseOutputPath>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<RunPostBuildEvent>Always</RunPostBuildEvent>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\UABEAvalonia\UABEAvalonia.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Include="AssetsTools.NET">
+			<HintPath>..\Libs\AssetsTools.NET.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+	  <Exec Command="xcopy /y $(OutDir)*.dll $(SolutionDir)UABEAvalonia\$(OutputPath)plugins" />
+	</Target>
+
+</Project>
