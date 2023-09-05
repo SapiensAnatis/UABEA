@@ -25,7 +25,11 @@ namespace UABEAvalonia.Plugins
                 Assembly asm = Assembly.LoadFrom(path);
                 foreach (Type type in asm.GetTypes())
                 {
-                    if (typeof(UABEAPlugin).IsAssignableFrom(type))
+                    if (
+                        typeof(UABEAPlugin).IsAssignableFrom(type)
+                        && !type.IsInterface
+                        && !type.IsAbstract
+                    )
                     {
                         object? typeInst = Activator.CreateInstance(type);
                         if (typeInst == null)

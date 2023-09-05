@@ -31,10 +31,7 @@ public class ImportDictionaryOption : DictionaryOption
 
         string file = selectedFilePaths[0];
 
-        SerializableDictionary<object, object> serializedDict =
-            SerializableDictionaryHelper.CreateFromFile(file);
-
-        baseField["dict"].AsObject = serializedDict;
+        SerializableDictionaryHelper.UpdateFromFile(file, baseField);
 
         byte[] savedAsset = baseField.WriteToByteArray();
 

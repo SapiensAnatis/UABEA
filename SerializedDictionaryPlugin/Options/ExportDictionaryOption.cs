@@ -27,38 +27,17 @@ public class ExportDictionaryOption : DictionaryOption
 
         ArgumentNullException.ThrowIfNull(baseField);
 
-        var dict = baseField.Children.First(x => x.FieldName == "dict");
-        IEnumerable<object> keys = dict.Children
-            .First(x => x.FieldName == "entriesKey")
-            .Children.First(x => x.FieldName == "Array")
-            .Children.Select(x => x.AsObject)
-            .Where(x => IsNonEmptyKey(x));
-
-        IEnumerable<Dictionary<string, object>> values = dict.Children
-            .First(x => x.FieldName == "entriesValue")
-            .Children.First(x => x.FieldName == "Array")
-            .Children.Select(x => x.Children.ToDictionary(c => c.FieldName, c => c.AsObject));
-
         IStorageFile? saveFile = await win.StorageProvider.SaveFilePickerAsync(
             new FilePickerSaveOptions() { Title = "Save JSON file", FileTypeChoices = JsonFilter }
         );
+
         string? path = FileDialogUtils.GetSaveFileDialogFile(saveFile);
 
         if (path is null)
             return false;
 
-        SerializableDictionaryHelper.WriteToFile(path, keys, values);
+        SerializableDictionaryHelper.WriteToFile(path, baseField);
 
         return true;
-    }
-
-    private static bool IsNonEmptyKey(object key)
-    {
-        return key switch
-        {
-            int intValue => intValue is not 0,
-            string stringValue => !string.IsNullOrEmpty(stringValue),
-            _ => throw new NotImplementedException(),
-        };
     }
 }
