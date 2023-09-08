@@ -2,25 +2,13 @@
 
 namespace SerializableDictionaryPlugin;
 
-internal class DeterministicStringEqualityComparer
-    : EqualityComparer<string>,
-        IEqualityComparer<object>
+internal class DeterministicStringEqualityComparer : EqualityComparer<string>
 {
     public static DeterministicStringEqualityComparer Instance { get; } = new();
 
     public override bool Equals(string? x, string? y)
     {
         return Default.Equals(x, y);
-    }
-
-    public new bool Equals(object? x, object? y)
-    {
-        if (x is not string xs)
-            throw new ArgumentException(nameof(x));
-        if (y is not string ys)
-            throw new ArgumentException(nameof(y));
-
-        return Equals(xs, ys);
     }
 
     /// <summary>
@@ -55,13 +43,5 @@ internal class DeterministicStringEqualityComparer
                 return hash1 + hash2 * 1566083941;
             }
         }
-    }
-
-    public int GetHashCode([DisallowNull] object obj)
-    {
-        if (obj is not string s)
-            throw new ArgumentException(nameof(obj));
-
-        return GetHashCode(s);
     }
 }

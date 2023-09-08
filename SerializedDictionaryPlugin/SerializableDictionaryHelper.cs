@@ -1,4 +1,5 @@
 ﻿using AssetsTools.NET;
+using AssetsTools.NET.Extra;
 using Avalonia.Platform.Storage;
 using SerializableDictionaryPlugin.Options;
 using System.Diagnostics;
@@ -40,18 +41,29 @@ public static class SerializableDictionaryHelper
         AssetTypeValueField dict = baseField["dict"];
 
         IEnumerable<object> keys = dict["entriesKey.Array"].Children
-            .Select(x => x.AsObject)
+            .Select(GetPrimitiveFieldValue)
             .Where(IsNonEmptyKey);
 
         IEnumerable<object> values = dict["entriesValue.Array"].Children.Select(
-            x => x.Children.ToDictionary(c => c.FieldName, c => c.AsObject)
+            x => x.Children.ToDictionary(c => c.FieldName, GetPrimitiveFieldValue)
         );
 
         Dictionary<object, object> newDict = keys.Zip(values)
             .ToDictionary(x => x.First, x => x.Second);
 
-        using FileStream fs = File.OpenWrite(filepath);
+        using FileStream fs = File.Open(filepath, FileMode.Create, FileAccess.ReadWrite);
         JsonSerializer.Serialize(fs, newDict, new JsonSerializerOptions() { WriteIndented = true });
+    }
+
+    private static void UpdateFromStringDictionary(
+        AssetTypeValueField dict,
+        Dictionary<string, JsonElement> source
+    )
+    {
+        SerializableDictionary<string, JsonElement> serializedDict =
+            new(source, DeterministicStringEqualityComparer.Instance);
+
+        UpdateFromDictionary(dict, serializedDict);
     }
 
     private static void UpdateFromIntDictionary(
@@ -73,63 +85,74 @@ public static class SerializableDictionaryHelper
                 })
             );
 
+        UpdateFromDictionary(dict, serializedDict);
+    }
+
+    private static void UpdateFromDictionary<TKey>(
+        AssetTypeValueField dict,
+        SerializableDictionary<TKey, JsonElement> serializedDict
+    )
+    {
+        UpdateFromArray(dict["buckets.Array"], serializedDict.buckets);
+        UpdateFromArray(dict["entriesHashCode.Array"], serializedDict.entriesHashCode);
+        UpdateFromArray(dict["entriesKey.Array"], serializedDict.entriesKey);
+        UpdateFromArray(dict["entriesNext.Array"], serializedDict.entriesNext);
+        UpdateFromObjects(dict["entriesValue.Array"], serializedDict.entriesValue);
+
         dict["count"].AsInt = serializedDict.Count;
-        dict["buckets.Array"].Children.UpdateWithArray(serializedDict.buckets);
-        dict["entriesHashCode.Array"].Children.UpdateWithArray(serializedDict.entriesHashCode);
-        dict["entriesNext.Array"].Children.UpdateWithArray(serializedDict.entriesNext);
-        dict["entriesKey.Array"].Children.UpdateWithArray(serializedDict.entriesKey);
-
-        foreach (
-            (AssetTypeValueField field, JsonElement newValue) in dict["entriesValue.Array"].Zip(
-                serializedDict.entriesValue.Where(x => x.ValueKind != JsonValueKind.Undefined)
-            )
-        )
-        {
-            foreach (AssetTypeValueField subField in field.Children)
-            {
-                if (!newValue.TryGetProperty(subField.FieldName, out JsonElement newValueField))
-                {
-                    throw new InvalidOperationException(
-                        $"NewValue was missing property: {subField.FieldName}. "
-                            + $"NewValue: ${JsonSerializer.Serialize(newValue, new JsonSerializerOptions { WriteIndented = true })}"
-                    );
-                }
-
-                subField.Value.AsObject = subField.Value.ValueType switch
-                {
-                    AssetValueType.Bool => newValueField.Deserialize<bool>(),
-                    AssetValueType.Int32 => newValueField.Deserialize<int>(),
-                    AssetValueType.String => newValueField.Deserialize<string>(),
-                    AssetValueType.Float => newValueField.Deserialize<float>(),
-                    AssetValueType.Double => newValueField.Deserialize<double>(),
-                    _
-                        => throw new NotSupportedException(
-                            $"Unexpected AssetValueType {subField.Value.ValueType}"
-                        )
-                };
-            }
-        }
-
         dict["freeCount"].AsInt = serializedDict.freeCount;
         dict["freeList"].AsInt = serializedDict.freeList;
     }
 
-    private static void UpdateFromStringDictionary(
-        AssetTypeValueField dict,
-        Dictionary<string, JsonElement> source
+    private static void UpdateFromArray<TValue>(
+        AssetTypeValueField array,
+        IEnumerable<TValue> newValues
     )
     {
-        SerializableDictionary<string, JsonElement> serializedDict =
-            new(source, DeterministicStringEqualityComparer.Instance);
+        array.Children = newValues
+            .Select(
+                x =>
+                {
+                    AssetTypeValueField newChild = ValueBuilder.DefaultValueFieldFromArrayTemplate(array);
 
-        dict["buckets.Array"].Children.UpdateWithArray(serializedDict.buckets);
-        dict["count"].AsInt = serializedDict.Count;
-        dict["entriesHashCode.Array"].Children.UpdateWithArray(serializedDict.entriesHashCode);
-        dict["entriesNext.Array"].Children.UpdateWithArray(serializedDict.entriesNext);
-        dict["entriesKey.Array"].Children.UpdateWithArray(serializedDict.entriesKey);
-        //  dict["entriesValue.Array"].Children = serializedDict.entriesValue.AsArrayChildren();
-        dict["freeCount"].AsInt = serializedDict.freeCount;
-        dict["freeList"].AsInt = serializedDict.freeList;
+                    if (x is string stringValue)
+                        newChild.AsString = stringValue;
+                    else if (x is not null)
+                        newChild.AsObject = x;
+
+                    return newChild;
+                }
+                   
+            )
+            .ToList();
+    }
+
+    private static void UpdateFromObjects(
+        AssetTypeValueField array,
+        IEnumerable<JsonElement> newValues
+    )
+    {
+        array.Children = newValues
+            .Select(
+                jsonObject =>
+                {
+                    AssetTypeValueField newChild = ValueBuilder.DefaultValueFieldFromArrayTemplate(array);
+                    if (jsonObject.ValueKind == JsonValueKind.Undefined)
+                        return newChild;
+
+                    foreach (AssetTypeValueField grandChild in newChild)
+                    {
+                        if (!jsonObject.TryGetProperty(grandChild.FieldName, out JsonElement property))
+                            throw new InvalidOperationException($"Missing JSON property: {grandChild.FieldName}");
+
+                        object jsonProperty = DeserializeToValueType(property, grandChild.Value.ValueType);
+                        grandChild.Value.AsObject = jsonProperty;
+                    }
+
+                    return newChild;
+                }
+            )
+            .ToList();
     }
 
     private static bool IsNonEmptyKey(object key)
@@ -141,43 +164,30 @@ public static class SerializableDictionaryHelper
             _ => throw new NotImplementedException(),
         };
     }
-}
 
-file static class EnumerableExtensions
-{
-    public static void UpdateWithArray(
-        this List<AssetTypeValueField> fields,
-        IEnumerable<int> newValues
-    )
+    private static object GetPrimitiveFieldValue(AssetTypeValueField field)
     {
-        foreach ((AssetTypeValueField field, int newValue) in fields.Zip(newValues))
+        return field.Value.ValueType switch
         {
-            field.AsInt = newValue;
-        }
+            AssetValueType.Bool => field.AsBool,
+            AssetValueType.Int32 => field.AsInt,
+            AssetValueType.String => field.AsString,
+            AssetValueType.Float => field.AsFloat,
+            AssetValueType.Double => field.AsDouble,
+            _ => throw new NotImplementedException($"Unrecognized type {field.Value.ValueType}"),
+        };
     }
 
-    public static void UpdateWithArray(
-        this List<AssetTypeValueField> fields,
-        IEnumerable<string> newValues
-    )
+    private static object DeserializeToValueType(JsonElement element, AssetValueType fieldType)
     {
-        foreach ((AssetTypeValueField field, string newValue) in fields.Zip(newValues))
+        return fieldType switch
         {
-            field.AsString = newValue;
-        }
-    }
-
-    public static List<AssetTypeValueField> AsArrayChildren(this IEnumerable<string> values)
-    {
-        return values
-            .Select(
-                x =>
-                    new AssetTypeValueField
-                    {
-                        Value = new(x),
-                        TemplateField = new() { Name = "data" }
-                    }
-            )
-            .ToList();
+            AssetValueType.Bool => element.Deserialize<bool>(),
+            AssetValueType.Int32 => element.Deserialize<int>(),
+            AssetValueType.String => element.Deserialize<string>() ?? string.Empty,
+            AssetValueType.Float => element.Deserialize<float>(),
+            AssetValueType.Double => element.Deserialize<double>(),
+            _ => throw new NotSupportedException($"Unexpected AssetValueType {fieldType}")
+        };
     }
 }

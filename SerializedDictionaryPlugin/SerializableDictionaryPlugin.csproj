@@ -21,7 +21,7 @@
 	</ItemGroup>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-	  <Exec Command="xcopy /y $(OutDir)* $(SolutionDir)UABEAvalonia\$(OutputPath)plugins" />
+	  <Exec Command="xcopy /y $(OutDir)*.dll $(SolutionDir)UABEAvalonia\$(OutputPath)plugins" />
 	</Target>
 
 </Project>
