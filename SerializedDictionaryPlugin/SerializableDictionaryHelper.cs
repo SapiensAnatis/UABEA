@@ -1,7 +1,5 @@
 ﻿using AssetsTools.NET;
 using AssetsTools.NET.Extra;
-using Avalonia.Platform.Storage;
-using SerializableDictionaryPlugin.Options;
 using System.Diagnostics;
 using System.Text.Json;
 
@@ -145,7 +143,7 @@ public static class SerializableDictionaryHelper
                         if (!jsonObject.TryGetProperty(grandChild.FieldName, out JsonElement property))
                             throw new InvalidOperationException($"Missing JSON property: {grandChild.FieldName}");
 
-                        object jsonProperty = DeserializeToValueType(property, grandChild.Value.ValueType);
+                        object jsonProperty = DeserializeToPrimitiveValue(property, grandChild.Value.ValueType);
                         grandChild.Value.AsObject = jsonProperty;
                     }
 
@@ -170,24 +168,41 @@ public static class SerializableDictionaryHelper
         return field.Value.ValueType switch
         {
             AssetValueType.Bool => field.AsBool,
+            AssetValueType.Int64  => field.AsLong,
             AssetValueType.Int32 => field.AsInt,
+            AssetValueType.Int16 => field.AsShort,
+            AssetValueType.Int8 => field.AsSByte,
+            AssetValueType.UInt64 => field.AsULong,
+            AssetValueType.UInt32 => field.AsUInt,
+            AssetValueType.UInt16 => field.AsUShort,
+            AssetValueType.UInt8 => field.AsByte,
             AssetValueType.String => field.AsString,
             AssetValueType.Float => field.AsFloat,
             AssetValueType.Double => field.AsDouble,
-            _ => throw new NotImplementedException($"Unrecognized type {field.Value.ValueType}"),
+            _ => throw new NotSupportedException($"Unrecognized type {field.Value.ValueType}"),
         };
     }
 
-    private static object DeserializeToValueType(JsonElement element, AssetValueType fieldType)
+    private static object DeserializeToPrimitiveValue(JsonElement element, AssetValueType fieldType)
     {
-        return fieldType switch
+        checked
         {
-            AssetValueType.Bool => element.Deserialize<bool>(),
-            AssetValueType.Int32 => element.Deserialize<int>(),
-            AssetValueType.String => element.Deserialize<string>() ?? string.Empty,
-            AssetValueType.Float => element.Deserialize<float>(),
-            AssetValueType.Double => element.Deserialize<double>(),
-            _ => throw new NotSupportedException($"Unexpected AssetValueType {fieldType}")
-        };
+            return fieldType switch
+            {
+                AssetValueType.Bool => element.GetBoolean(),
+                AssetValueType.Int64 => element.GetInt64(),
+                AssetValueType.Int32 => element.GetInt32(),
+                AssetValueType.Int16 => element.GetInt16(),
+                AssetValueType.Int8 => element.GetSByte(),
+                AssetValueType.UInt64 => element.GetUInt64(),
+                AssetValueType.UInt32 => element.GetUInt32(),
+                AssetValueType.UInt16 => element.GetUInt16(),
+                AssetValueType.UInt8 => element.GetByte(),
+                AssetValueType.String => element.GetString() ?? string.Empty,
+                AssetValueType.Float => element.GetSingle(),
+                AssetValueType.Double => element.GetDouble(),
+                _ => throw new NotSupportedException($"Unrecognized type {fieldType}")
+            }; 
+        }
     }
 }
