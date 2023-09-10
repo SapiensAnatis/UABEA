@@ -58,8 +58,10 @@ public static class SerializableDictionaryHelper
         Dictionary<string, JsonElement> source
     )
     {
+        int capacity = dict["entriesHashCode.Array"].Children.Count;
+
         SerializableDictionary<string, JsonElement> serializedDict =
-            new(source, DeterministicStringEqualityComparer.Instance);
+            new(source, capacity, DeterministicStringEqualityComparer.Instance);
 
         UpdateFromDictionary(dict, serializedDict);
     }
@@ -69,6 +71,9 @@ public static class SerializableDictionaryHelper
         Dictionary<string, JsonElement> source
     )
     {
+
+        int capacity = dict["entriesHashCode.Array"].Children.Count;
+
         SerializableDictionary<int, JsonElement> serializedDict =
             new(
                 source.Select(x =>
@@ -80,7 +85,8 @@ public static class SerializableDictionaryHelper
                     }
 
                     return new KeyValuePair<int, JsonElement>(intKey, x.Value);
-                })
+                }), 
+                capacity
             );
 
         UpdateFromDictionary(dict, serializedDict);

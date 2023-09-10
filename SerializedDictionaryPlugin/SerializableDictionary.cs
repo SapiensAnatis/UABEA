@@ -72,21 +72,16 @@ public class SerializableDictionary<TKey, TValue> : IDictionary<TKey, TValue>
         Initialize(0);
     }
 
-    public SerializableDictionary(IEnumerable<KeyValuePair<TKey, TValue>> source)
-    {
-        Initialize(source.Count());
-
-        foreach ((TKey key, TValue value) in source)
-            this.Insert(key, value, true);
-    }
-
     public SerializableDictionary(
         IEnumerable<KeyValuePair<TKey, TValue>> source,
-        IEqualityComparer<TKey> comparer
+        int initialCapacity,
+        IEqualityComparer<TKey> comparer = null
     )
     {
-        Initialize(source.Count());
-        this.Comparer = comparer;
+        Initialize(initialCapacity);
+
+        if (comparer is not null)
+            this.Comparer = comparer;
 
         foreach ((TKey key, TValue value) in source)
             this.Insert(key, value, true);
