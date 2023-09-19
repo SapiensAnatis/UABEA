@@ -71,7 +71,6 @@ public static class SerializableDictionaryHelper
         Dictionary<string, JsonElement> source
     )
     {
-
         int capacity = dict["entriesHashCode.Array"].Children.Count;
 
         SerializableDictionary<int, JsonElement> serializedDict =
@@ -85,7 +84,7 @@ public static class SerializableDictionaryHelper
                     }
 
                     return new KeyValuePair<int, JsonElement>(intKey, x.Value);
-                }), 
+                }),
                 capacity
             );
 
@@ -114,20 +113,19 @@ public static class SerializableDictionaryHelper
     )
     {
         array.Children = newValues
-            .Select(
-                x =>
-                {
-                    AssetTypeValueField newChild = ValueBuilder.DefaultValueFieldFromArrayTemplate(array);
+            .Select(x =>
+            {
+                AssetTypeValueField newChild = ValueBuilder.DefaultValueFieldFromArrayTemplate(
+                    array
+                );
 
-                    if (x is string stringValue)
-                        newChild.AsString = stringValue;
-                    else if (x is not null)
-                        newChild.AsObject = x;
+                if (x is string stringValue)
+                    newChild.AsString = stringValue;
+                else if (x is not null)
+                    newChild.AsObject = x;
 
-                    return newChild;
-                }
-                   
-            )
+                return newChild;
+            })
             .ToList();
     }
 
@@ -137,36 +135,31 @@ public static class SerializableDictionaryHelper
     )
     {
         array.Children = newValues
-            .Select(
-                jsonObject =>
-                {
-                    AssetTypeValueField newChild = ValueBuilder.DefaultValueFieldFromArrayTemplate(array);
-                    if (jsonObject.ValueKind == JsonValueKind.Undefined)
-                        return newChild;
-
-                    foreach (AssetTypeValueField grandChild in newChild)
-                    {
-                        if (!jsonObject.TryGetProperty(grandChild.FieldName, out JsonElement property))
-                            throw new InvalidOperationException($"Missing JSON property: {grandChild.FieldName}");
-
-                        object jsonProperty = DeserializeToPrimitiveValue(property, grandChild.Value.ValueType);
-                        grandChild.Value.AsObject = jsonProperty;
-                    }
-
+            .Select(jsonObject =>
+            {
+                AssetTypeValueField newChild = ValueBuilder.DefaultValueFieldFromArrayTemplate(
+                    array
+                );
+                if (jsonObject.ValueKind == JsonValueKind.Undefined)
                     return newChild;
-                }
-            )
-            .ToList();
-    }
 
-    private static bool IsNonEmptyKey(object key)
-    {
-        return key switch
-        {
-            int intValue => intValue is not 0,
-            string stringValue => !string.IsNullOrEmpty(stringValue),
-            _ => throw new NotImplementedException(),
-        };
+                foreach (AssetTypeValueField grandChild in newChild)
+                {
+                    if (!jsonObject.TryGetProperty(grandChild.FieldName, out JsonElement property))
+                        throw new InvalidOperationException(
+                            $"Missing JSON property: {grandChild.FieldName}"
+                        );
+
+                    object jsonProperty = DeserializeToPrimitiveValue(
+                        property,
+                        grandChild.Value.ValueType
+                    );
+                    grandChild.Value.AsObject = jsonProperty;
+                }
+
+                return newChild;
+            })
+            .ToList();
     }
 
     private static object GetPrimitiveFieldValue(AssetTypeValueField field)
@@ -174,7 +167,7 @@ public static class SerializableDictionaryHelper
         return field.Value.ValueType switch
         {
             AssetValueType.Bool => field.AsBool,
-            AssetValueType.Int64  => field.AsLong,
+            AssetValueType.Int64 => field.AsLong,
             AssetValueType.Int32 => field.AsInt,
             AssetValueType.Int16 => field.AsShort,
             AssetValueType.Int8 => field.AsSByte,
@@ -208,7 +201,7 @@ public static class SerializableDictionaryHelper
                 AssetValueType.Float => element.GetSingle(),
                 AssetValueType.Double => element.GetDouble(),
                 _ => throw new NotSupportedException($"Unrecognized type {fieldType}")
-            }; 
+            };
         }
     }
 }
