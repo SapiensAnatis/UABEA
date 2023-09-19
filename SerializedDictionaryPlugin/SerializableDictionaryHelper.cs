@@ -40,7 +40,7 @@ public static class SerializableDictionaryHelper
 
         IEnumerable<object> keys = dict["entriesKey.Array"].Children
             .Select(GetPrimitiveFieldValue)
-            .Where(IsNonEmptyKey);
+            .Distinct();
 
         IEnumerable<object> values = dict["entriesValue.Array"].Children.Select(
             x => x.Children.ToDictionary(c => c.FieldName, GetPrimitiveFieldValue)
