@@ -37,10 +37,11 @@ public static class SerializableDictionaryHelper
     public static void WriteToFile(string filepath, AssetTypeValueField baseField)
     {
         AssetTypeValueField dict = baseField["dict"];
+        int count = dict["count"].AsInt;
 
         IEnumerable<object> keys = dict["entriesKey.Array"].Children
             .Select(GetPrimitiveFieldValue)
-            .Distinct();
+            .Take(count);
 
         IEnumerable<object> values = dict["entriesValue.Array"].Children.Select(
             x => x.Children.ToDictionary(c => c.FieldName, GetPrimitiveFieldValue)
